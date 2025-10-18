@@ -21,6 +21,7 @@ export default function UploadPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [reportType, setReportType] = useState<string>("medical-prescription")
 
   const handleFileSelect = async (file: File) => {
     setSelectedFile(file)
@@ -30,23 +31,42 @@ export default function UploadPage() {
       // Simulate AI analysis
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
-      const mockResult: AnalysisResult = {
-        summary:
-          "Blood test results show normal levels of hemoglobin and white blood cells. Cholesterol levels are slightly elevated.",
-        keyFindings: [
-          "Hemoglobin: 14.5 g/dL (Normal)",
-          "White Blood Cells: 7.2 K/uL (Normal)",
-          "Total Cholesterol: 220 mg/dL (Slightly Elevated)",
-          "Blood Pressure: 128/82 mmHg (Elevated)",
-        ],
-        recommendations: [
-          "Maintain regular exercise routine",
-          "Reduce sodium intake",
-          "Schedule follow-up appointment in 3 months",
-          "Consider dietary changes to lower cholesterol",
-        ],
-        riskLevel: "low",
-      }
+      // Different mock results based on report type
+      const mockResult: AnalysisResult = reportType === "blood-test-report" 
+        ? {
+            summary:
+              "Blood test results show normal levels of hemoglobin and white blood cells. Cholesterol levels are slightly elevated.",
+            keyFindings: [
+              "Hemoglobin: 14.5 g/dL (Normal)",
+              "White Blood Cells: 7.2 K/uL (Normal)",
+              "Total Cholesterol: 220 mg/dL (Slightly Elevated)",
+              "Blood Pressure: 128/82 mmHg (Elevated)",
+            ],
+            recommendations: [
+              "Maintain regular exercise routine",
+              "Reduce sodium intake",
+              "Schedule follow-up appointment in 3 months",
+              "Consider dietary changes to lower cholesterol",
+            ],
+            riskLevel: "low",
+          }
+        : {
+            summary:
+              "Prescription analysis complete. Treatment plan for Upper Respiratory Infection with 5 medications prescribed for 7-day course.",
+            keyFindings: [
+              "Diagnosis: Upper Respiratory Infection",
+              "Treatment Duration: 7 days",
+              "5 Medications Prescribed",
+              "Follow-up Required: October 25, 2025",
+            ],
+            recommendations: [
+              "Take all medications as prescribed",
+              "Drink plenty of fluids while on antibiotics",
+              "Avoid alcohol during treatment",
+              "Schedule follow-up appointment on time",
+            ],
+            riskLevel: "low",
+          }
 
       setAnalysisResult(mockResult)
       setShowPreview(true)
@@ -67,11 +87,20 @@ export default function UploadPage() {
   }
 
   const handleSaveAndContinue = () => {
+    // Save the report type to localStorage so dashboard knows which view to show
+    if (reportType === "medical-prescription") {
+      localStorage.setItem('lastReportType', 'prescription')
+    } else if (reportType === "blood-test-report") {
+      localStorage.setItem('lastReportType', 'blood-test')
+    }
+    
     toast({
       title: "Report Saved",
       description: "Your medical report has been saved to your dashboard",
     })
-    router.push("/dashboard")
+    
+    // Navigate to dashboard with reportType parameter
+    router.push(`/dashboard?reportType=${reportType === "medical-prescription" ? "prescription" : "blood-test"}`)
   }
 
   const getRiskColor = (level: string) => {
@@ -89,12 +118,12 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 mb-3">Upload Medical Report</h1>
-          <p className="text-lg text-slate-600">
-            Upload your medical reports in PDF or image format for instant AI analysis
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl font-bold text-slate-900 mb-3">Upload Health Report</h1>
+          <p className="text-lg text-slate-600 whitespace-nowrap">
+            Upload your health documents (PDF or image) to get instant AI-powered analysis and insights.
           </p>
         </div>
 
@@ -102,8 +131,32 @@ export default function UploadPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Upload Section */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-              <h2 className="text-xl font-semibold text-slate-900 mb-6">Select Report</h2>
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+              {/* Report Type Dropdown */}
+              <div className="mb-6">
+                <label htmlFor="reportType" className="block text-base font-semibold text-slate-900 mb-2">
+                  Select Report Type
+                </label>
+                <div className="relative">
+                  <select
+                    id="reportType"
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value)}
+                    className="w-full px-4 py-2 text-base border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none bg-white text-slate-900 appearance-none pr-10 cursor-pointer"
+                    style={{ colorScheme: 'light' }}
+                  >
+                    <option value="medical-prescription">Medical Prescription</option>
+                    <option value="blood-test-report">Blood Test Report</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* File Upload */}
               <FileUpload onFileSelect={handleFileSelect} isLoading={isAnalyzing} />
             </div>
           </div>
@@ -124,10 +177,6 @@ export default function UploadPage() {
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                   PNG Images
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  WebP Images
                 </li>
               </ul>
             </div>

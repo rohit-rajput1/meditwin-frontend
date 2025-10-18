@@ -19,13 +19,16 @@ export default function LoginPage() {
 
       // Store user session (in real app, this would be handled by auth service)
       localStorage.setItem("user", JSON.stringify({ email: data.email }))
+      
+      // Dispatch custom event to notify navbar
+      window.dispatchEvent(new Event("userChanged"))
 
       toast({
         title: "Success",
         description: "You have been signed in successfully",
       })
 
-      router.push("/dashboard")
+      router.push("/")
     } catch (error) {
       toast({
         title: "Error",

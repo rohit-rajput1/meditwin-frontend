@@ -41,6 +41,16 @@ const weightData = [
   { week: "Week 6", weight: 73.8 },
 ]
 
+const adherenceData = [
+  { day: "Day 1", taken: 4, missed: 1, total: 5 },
+  { day: "Day 2", taken: 5, missed: 0, total: 5 },
+  { day: "Day 3", taken: 4, missed: 1, total: 5 },
+  { day: "Day 4", taken: 5, missed: 0, total: 5 },
+  { day: "Day 5", taken: 5, missed: 0, total: 5 },
+  { day: "Day 6", taken: 4, missed: 1, total: 5 },
+  { day: "Day 7", taken: 5, missed: 0, total: 5 }
+]
+
 export function BloodPressureChart() {
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -101,6 +111,28 @@ export function WeightChart() {
         />
         <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 4 }} />
       </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+export function AdherenceChart() {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={adherenceData}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="day" stroke="#64748b" />
+        <YAxis stroke="#64748b" />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: "white",
+            border: "1px solid #e2e8f0",
+            borderRadius: "8px",
+          }}
+        />
+        <Legend />
+        <Bar dataKey="taken" fill="#10b981" name="Doses Taken" />
+        <Bar dataKey="missed" fill="#ef4444" name="Doses Missed" />
+      </BarChart>
     </ResponsiveContainer>
   )
 }

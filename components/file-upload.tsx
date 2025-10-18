@@ -138,7 +138,7 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
             ref={fileInputRef}
             type="file"
             onChange={handleChange}
-            accept=".pdf,.jpg,.jpeg,.png,.webp"
+            accept=".pdf,.jpg,.jpeg,.png"
             className="hidden"
             disabled={isLoading}
           />
@@ -160,7 +160,7 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
                 </button>
               </p>
             </div>
-            <p className="text-xs text-slate-600 mt-2">Supported formats: PDF, JPEG, PNG, WebP (Max 10MB)</p>
+            <p className="text-xs text-slate-600 mt-2">Supported formats: PDF, JPEG, PNG (Max 10MB)</p>
           </div>
         </div>
       ) : (
