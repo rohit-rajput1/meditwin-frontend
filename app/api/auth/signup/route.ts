@@ -4,30 +4,51 @@ export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()
 
-    // Validate input
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    if (password.length < 8) {
-      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    
+    if (!apiUrl) {
+      console.error("NEXT_PUBLIC_API_URL is not defined")
+      return NextResponse.json({ error: "Backend API URL not configured" }, { status: 500 })
     }
 
-    // In a real app, you would:
-    // 1. Check if user already exists
-    // 2. Hash the password
-    // 3. Create user in database
-    // 4. Create a session/JWT token
+    console.log("Calling backend:", `${apiUrl}/auth/register`)
 
-    // Mock successful signup
-    const user = {
-      id: "1",
-      email,
-      name: email.split("@")[0],
+    const backendResponse = await fetch(`${apiUrl}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_email: email,
+        password: password,
+      }),
+    })
+
+    // Check if response is JSON
+    const contentType = backendResponse.headers.get("content-type")
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await backendResponse.text()
+      console.error("Backend returned non-JSON response:", text)
+      return NextResponse.json(
+        { error: "Backend returned an invalid response. Please check if the backend is running." },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({ success: true, user }, { status: 201 })
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    const data = await backendResponse.json()
+
+    if (!backendResponse.ok) {
+      return NextResponse.json(
+        { error: data.detail || "Registration failed" },
+        { status: backendResponse.status }
+      )
+    }
+
+    return NextResponse.json({ success: true, user: data }, { status: 201 })
+  } catch (error: any) {
+    console.error("Signup API error:", error)
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

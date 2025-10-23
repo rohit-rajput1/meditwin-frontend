@@ -14,13 +14,24 @@ export default function LoginPage() {
   const handleLogin = async (data: { email: string; password: string }) => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // ✅ FIXED: Correct API route path
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+        }),
+      })
 
-      // Store user session (in real app, this would be handled by auth service)
-      localStorage.setItem("user", JSON.stringify({ email: data.email }))
-      
-      // Dispatch custom event to notify navbar
+      const result = await res.json()
+
+      if (!res.ok) {
+        throw new Error(result.error || "Login failed")
+      }
+
+      // Store user data locally
+      localStorage.setItem("user", JSON.stringify(result.user || result))
       window.dispatchEvent(new Event("userChanged"))
 
       toast({
@@ -28,11 +39,12 @@ export default function LoginPage() {
         description: "You have been signed in successfully",
       })
 
+      // Redirect to home page
       router.push("/")
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to sign in. Please try again.",
+        description: error.message || "Failed to sign in. Please try again.",
         variant: "destructive",
       })
     } finally {

@@ -1,16 +1,21 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Eye, EyeOff } from "lucide-react"
 
+export interface AuthFormData {
+  email: string
+  password: string
+  confirmPassword?: string
+}
+
 interface AuthFormProps {
   type: "login" | "signup"
-  onSubmit: (data: { email: string; password: string; confirmPassword?: string }) => void
+  onSubmit: (data: AuthFormData) => void | Promise<void>
   isLoading?: boolean
 }
 
@@ -25,24 +30,15 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
 
-    if (!email) {
-      newErrors.email = "Email is required"
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Please enter a valid email"
-    }
+    if (!email) newErrors.email = "Email is required"
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Please enter a valid email"
 
-    if (!password) {
-      newErrors.password = "Password is required"
-    } else if (password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters"
-    }
+    if (!password) newErrors.password = "Password is required"
+    else if (password.length < 8) newErrors.password = "Password must be at least 8 characters"
 
     if (type === "signup") {
-      if (!confirmPassword) {
-        newErrors.confirmPassword = "Please confirm your password"
-      } else if (password !== confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match"
-      }
+      if (!confirmPassword) newErrors.confirmPassword = "Please confirm your password"
+      else if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match"
     }
 
     setErrors(newErrors)
@@ -62,7 +58,7 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Email Field */}
+      {/* Email */}
       <div className="space-y-2">
         <label htmlFor="email" className="block text-sm font-medium text-slate-900">
           Email Address
@@ -78,11 +74,12 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
           }}
           className={errors.email ? "border-red-500" : ""}
           disabled={isLoading}
+          required
         />
         {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
       </div>
 
-      {/* Password Field */}
+      {/* Password */}
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-slate-900">
           Password
@@ -99,6 +96,7 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
             }}
             className={errors.password ? "border-red-500 pr-10" : "pr-10"}
             disabled={isLoading}
+            required
           />
           <button
             type="button"
@@ -112,7 +110,7 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
         {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
       </div>
 
-      {/* Confirm Password Field (Signup Only) */}
+      {/* Confirm Password */}
       {type === "signup" && (
         <div className="space-y-2">
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-900">
@@ -130,6 +128,7 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
               }}
               className={errors.confirmPassword ? "border-red-500 pr-10" : "pr-10"}
               disabled={isLoading}
+              required
             />
             <button
               type="button"
@@ -144,7 +143,6 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
         </div>
       )}
 
-      {/* Submit Button */}
       <Button
         type="submit"
         className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2"
@@ -153,7 +151,6 @@ export default function AuthForm({ type, onSubmit, isLoading = false }: AuthForm
         {isLoading ? "Loading..." : type === "login" ? "Sign In" : "Create Account"}
       </Button>
 
-      {/* Footer Link */}
       <div className="text-center text-sm text-slate-600">
         {type === "login" ? (
           <>
