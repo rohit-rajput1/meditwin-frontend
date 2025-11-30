@@ -21,7 +21,7 @@ export default function ProfilePage() {
     localStorage.removeItem("user")
     toast({
       title: "Logged Out",
-      description: "You have been successfully logged out",
+      description: "Logged Out Successfully",
     })
     router.push("/")
   }

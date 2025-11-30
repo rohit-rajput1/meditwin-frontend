@@ -14,7 +14,6 @@ export default function LoginPage() {
   const handleLogin = async (data: { email: string; password: string }) => {
     setIsLoading(true)
     try {
-      // ✅ FIXED: Correct API route path
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -36,7 +35,7 @@ export default function LoginPage() {
 
       toast({
         title: "Success",
-        description: "You have been signed in successfully",
+        description: "Logged in successfully",
       })
 
       // Redirect to home page
