@@ -1,47 +1,29 @@
+// app/api/user/profile/route.ts
 import { type NextRequest, NextResponse } from "next/server"
 
+// Since you're using session-based authentication with FastAPI backend,
+// these Next.js API routes are not needed.
+// The frontend communicates directly with FastAPI using credentials: 'include'
+// to send session cookies automatically.
+
+// You can safely DELETE this entire file, or keep it for reference.
+
 export async function GET(request: NextRequest) {
-  try {
-    // In a real app, you would:
-    // 1. Verify user authentication
-    // 2. Query user profile from database
-    // 3. Return user data
-
-    // Mock user profile
-    const profile = {
-      id: "1",
-      firstName: "John",
-      lastName: "Doe",
-      email: "john.doe@example.com",
-      phone: "+1 (555) 123-4567",
-      location: "San Francisco, CA",
-      dateOfBirth: "1990-05-15",
-      height: 180,
-      weight: 73.8,
-      bloodType: "O+",
-      allergies: "Penicillin",
-      medications: "None",
-      emergencyContact: "+1 (555) 987-6543",
-    }
-
-    return NextResponse.json({ success: true, profile }, { status: 200 })
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 })
-  }
+  return NextResponse.json(
+    { 
+      message: "This endpoint is deprecated. The frontend communicates directly with the FastAPI backend using session-based authentication.",
+      note: "Session cookies are automatically sent with credentials: 'include' option"
+    },
+    { status: 410 }
+  )
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const data = await request.json()
-
-    // In a real app, you would:
-    // 1. Verify user authentication
-    // 2. Validate input data
-    // 3. Update user profile in database
-    // 4. Return updated profile
-
-    return NextResponse.json({ success: true, profile: data }, { status: 200 })
-  } catch (error) {
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
-  }
+  return NextResponse.json(
+    { 
+      message: "This endpoint is deprecated. Use POST /auth/profile-info on the FastAPI backend.",
+      note: "Session cookies are automatically sent with credentials: 'include' option"
+    },
+    { status: 410 }
+  )
 }

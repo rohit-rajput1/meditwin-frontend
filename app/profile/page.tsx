@@ -10,20 +10,45 @@ import HealthInfoForm from "@/components/health-info-form"
 import { useToast } from "@/hooks/use-toast"
 import { LogOut, ArrowLeft } from "lucide-react"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
 export default function ProfilePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [dataSharing, setDataSharing] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  const handleLogout = () => {
-    localStorage.removeItem("user")
-    toast({
-      title: "Logged Out",
-      description: "Logged Out Successfully",
-    })
-    router.push("/")
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      // Call backend logout endpoint to clear session
+      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include', // Important: sends session cookie
+      })
+
+      if (response.ok) {
+        // Clear any local storage data
+        localStorage.removeItem("user")
+        
+        toast({
+          title: "Logged Out",
+          description: "You have been logged out successfully",
+        })
+        
+        router.push("/")
+      } else {
+        throw new Error("Logout failed")
+      }
+    } catch (error) {
+      console.error("Logout error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   return (
@@ -75,10 +100,15 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
 
+        {/* Logout Button */}
         <div className="mt-8 pt-8 border-t border-slate-200">
-          <Button onClick={handleLogout} className="w-full bg-red-600 hover:bg-red-700 text-white gap-2">
+          <Button 
+            onClick={handleLogout} 
+            disabled={isLoggingOut}
+            className="w-full bg-red-600 hover:bg-red-700 text-white gap-2"
+          >
             <LogOut size={18} />
-            Logout
+            {isLoggingOut ? "Logging out..." : "Logout"}
           </Button>
         </div>
       </div>
