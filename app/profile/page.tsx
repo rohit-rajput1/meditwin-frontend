@@ -90,8 +90,6 @@ export default function ProfilePage() {
           <TabsContent value="health">
             <Card className="border-slate-200">
               <CardHeader>
-                <CardTitle className="text-slate-900">Health Information</CardTitle>
-                <CardDescription>Manage your medical details and emergency contacts</CardDescription>
               </CardHeader>
               <CardContent>
                 <HealthInfoForm />

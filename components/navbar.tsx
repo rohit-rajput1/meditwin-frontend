@@ -1,5 +1,4 @@
 "use client"
-
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
@@ -14,23 +13,95 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+
 interface UserData {
   email: string
   name?: string
+  firstName?: string
+  lastName?: string
 }
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [user, setUser] = useState<UserData | null>(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
+  // Fetch profile data from backend
+  const fetchUserProfile = async () => {
+    try {
+      setIsLoadingProfile(true)
+      const response = await fetch(`${API_BASE_URL}/auth/profile-info`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+      
+      if (response.ok) {
+        const profileData = await response.json()
+        return {
+          firstName: profileData.first_name || "",
+          lastName: profileData.last_name || "",
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch profile:", error)
+    } finally {
+      setIsLoadingProfile(false)
+    }
+    return null
+  }
+
+  // Fetch current user email from backend
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+      
+      if (response.ok) {
+        const userData = await response.json()
+        return userData.email || userData.user_email || ""
+      }
+    } catch (error) {
+      console.error("Failed to fetch user:", error)
+    }
+    return null
+  }
+
   useEffect(() => {
-    // Check if user is logged in
-    const checkUser = () => {
+    // Check if user is logged in and fetch profile
+    const checkUser = async () => {
       const storedUser = localStorage.getItem("user")
+      
       if (storedUser) {
-        setUser(JSON.parse(storedUser))
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          
+          // Fetch profile data to get first name and last name
+          const profileData = await fetchUserProfile()
+          const userEmail = await fetchCurrentUser()
+          
+          if (profileData && (profileData.firstName || profileData.lastName)) {
+            setUser({
+              email: userEmail || parsedUser.email || "",
+              name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+              firstName: profileData.firstName,
+              lastName: profileData.lastName,
+            })
+          } else {
+            // No profile data yet, use email
+            setUser({
+              email: userEmail || parsedUser.email || "",
+              name: userEmail || parsedUser.email || "User",
+            })
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error)
+          setUser(null)
+        }
       } else {
         setUser(null)
       }
@@ -41,23 +112,39 @@ export default function Navbar() {
 
     // Listen for storage changes (from other tabs/windows)
     window.addEventListener("storage", checkUser)
-
+    
     // Listen for custom event (from same tab)
     window.addEventListener("userChanged", checkUser)
+    
+    // Listen for profile updates
+    window.addEventListener("profileUpdated", checkUser)
 
     return () => {
       window.removeEventListener("storage", checkUser)
       window.removeEventListener("userChanged", checkUser)
+      window.removeEventListener("profileUpdated", checkUser)
     }
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Call backend logout endpoint
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch (error) {
+      console.error("Logout error:", error)
+    }
+
     localStorage.removeItem("user")
     localStorage.removeItem("healthProgress")
     setUser(null)
     router.push("/")
     setIsOpen(false)
   }
+
+  const displayName = user?.name || user?.email?.split('@')[0] || "User"
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm backdrop-blur-sm bg-white/95">
@@ -104,7 +191,7 @@ export default function Navbar() {
                     <DropdownMenuLabel>
                       <div className="flex flex-col space-y-1">
                         <p className="text-sm font-medium leading-none">
-                          {user?.name || "User"}
+                          {displayName}
                         </p>
                         <p className="text-xs leading-none text-slate-500">
                           {user?.email}
@@ -160,7 +247,7 @@ export default function Navbar() {
             {user ? (
               <>
                 <div className="px-4 py-2 border-b border-slate-200 mb-2">
-                  <p className="text-sm font-medium text-slate-900">{user?.name || "User"}</p>
+                  <p className="text-sm font-medium text-slate-900">{displayName}</p>
                   <p className="text-xs text-slate-500">{user?.email}</p>
                 </div>
                 <Link

@@ -1,5 +1,4 @@
 "use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -16,13 +15,13 @@ const api = {
       'Content-Type': 'application/json',
       ...options.headers,
     }
-
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
       credentials: 'include', // CRITICAL: This sends cookies with the request
     })
-
+    
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
       const errorObj = new Error(error.detail || `HTTP error! status: ${response.status}`)
@@ -30,10 +29,10 @@ const api = {
       errorObj.status = response.status
       throw errorObj
     }
-
+    
     return response.json()
   },
-
+  
   profile: {
     async get() {
       return api.fetch('/auth/profile-info', {
@@ -50,7 +49,7 @@ const api = {
   
   user: {
     async getCurrentUser() {
-      return api.fetch('/auth/me') // Adjust endpoint as per your backend
+      return api.fetch('/auth/me')
     },
   },
 }
@@ -71,11 +70,11 @@ interface ProfileFormProps {
 
 export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
   const { toast } = useToast()
-  const [isEditing, setIsEditing] = useState(false) // Start in view mode
+  const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingUser, setIsLoadingUser] = useState(true)
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
-  const [formData, setFormData] = useState<ProfileData>(
+  const [formData, setFormData] = useState(
     initialData || {
       first_name: "",
       last_name: "",
@@ -86,7 +85,6 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
     }
   )
 
-  // Fetch current user's email and profile data on mount
   useEffect(() => {
     const fetchUserAndProfile = async () => {
       try {
@@ -100,7 +98,6 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
           userEmail = userData.email || userData.user_email || ""
         } catch (userError: any) {
           console.log("Could not fetch user from API, trying localStorage")
-          // Fallback: try to get email from localStorage if available
           const storedUser = localStorage.getItem("user")
           if (storedUser) {
             try {
@@ -116,7 +113,6 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
         try {
           const profileData = await api.profile.get()
           
-          // Profile exists - populate form with saved data
           setFormData({
             first_name: profileData.first_name || "",
             last_name: profileData.last_name || "",
@@ -125,9 +121,8 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             location: profileData.location || "",
             date_of_birth: profileData.date_of_birth || "",
           })
-          setIsEditing(false) // Start in view mode if profile exists
+          setIsEditing(false)
         } catch (profileError: any) {
-          // Check if it's a 404 (profile doesn't exist) or other error
           // @ts-ignore
           if (profileError.status === 404 || profileError.message.includes("Profile not found")) {
             console.log("No profile found, user needs to create profile")
@@ -139,9 +134,8 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
               location: "",
               date_of_birth: "",
             })
-            setIsEditing(true) // Start in edit mode if no profile exists
+            setIsEditing(true)
           } else {
-            // Other errors - show error toast
             console.error("Error fetching profile:", profileError)
             toast({
               title: "Error",
@@ -162,7 +156,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
           description: "Failed to load user data",
           variant: "destructive",
         })
-        setIsEditing(true) // Start in edit mode on error
+        setIsEditing(true)
       } finally {
         setIsLoadingUser(false)
         setIsLoadingProfile(false)
@@ -184,7 +178,6 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
   }
 
   const handleSave = async () => {
-    // Validation
     if (!formData.first_name.trim() || !formData.last_name.trim()) {
       toast({
         title: "Validation Error",
@@ -193,7 +186,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
       })
       return
     }
-
+    
     if (!formData.phone.trim()) {
       toast({
         title: "Validation Error",
@@ -202,7 +195,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
       })
       return
     }
-
+    
     if (!formData.location.trim()) {
       toast({
         title: "Validation Error",
@@ -211,7 +204,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
       })
       return
     }
-
+    
     if (!formData.date_of_birth) {
       toast({
         title: "Validation Error",
@@ -223,7 +216,6 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
 
     setIsSaving(true)
     try {
-      // Prepare data for backend (exclude email as it's not in UserProfileUpdate schema)
       const updateData = {
         first_name: formData.first_name.trim(),
         last_name: formData.last_name.trim(),
@@ -231,10 +223,9 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
         location: formData.location.trim(),
         date_of_birth: formData.date_of_birth,
       }
-
+      
       const response = await api.profile.createOrUpdate(updateData)
       
-      // Update local state with response
       setFormData({
         ...formData,
         first_name: response.first_name,
@@ -243,14 +234,16 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
         location: response.location,
         date_of_birth: response.date_of_birth,
       })
-
+      
       onSave?.(formData)
       
       toast({
         title: "Success",
         description: "Profile saved successfully",
       })
-      setIsEditing(false) // Disable editing after successful save
+      
+      setIsEditing(false)
+      window.dispatchEvent(new Event('profileUpdated'))
     } catch (error: any) {
       console.error("Failed to save profile:", error)
       toast({
@@ -267,7 +260,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
 
   if (isLoadingUser || isLoadingProfile) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center p-8">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     )
@@ -276,43 +269,37 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
   return (
     <div className="space-y-6">
       {/* Profile Header */}
-      <div className="flex items-center gap-6 pb-6 border-b border-slate-200">
-        <div className="w-20 h-20 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-          <User className="w-10 h-10 text-white" />
+      <div className="flex items-start gap-4">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center border-4 border-blue-200">
+          <User className="text-blue-600" size={32} />
         </div>
+        
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-slate-900">
+          <h3 className="text-2xl font-bold text-slate-900">
             {formData.first_name || formData.last_name 
               ? `${formData.first_name} ${formData.last_name}`.trim()
               : "Your Profile"}
-          </h2>
+          </h3>
           <p className="text-slate-600">{formData.email || "Loading..."}</p>
         </div>
+        
         {hasProfileData && !isEditing && (
-          <Button
-            onClick={() => setIsEditing(true)}
-            variant="outline"
-            className="bg-transparent"
-          >
+          <Button onClick={() => setIsEditing(true)} variant="outline" className="bg-transparent">
             Edit Profile
           </Button>
         )}
+        
         {isEditing && hasProfileData && (
-          <Button
-            onClick={() => setIsEditing(false)}
-            variant="destructive"
-          >
+          <Button onClick={() => setIsEditing(false)} variant="destructive">
             Cancel
           </Button>
         )}
       </div>
 
       {/* Form Fields */}
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-900">
-            First Name <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-sm font-medium text-slate-900">First Name *</label>
           <Input
             name="first_name"
             value={formData.first_name}
@@ -322,10 +309,9 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             className={!isEditing ? "bg-slate-50" : ""}
           />
         </div>
+        
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-900">
-            Last Name <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-sm font-medium text-slate-900">Last Name *</label>
           <Input
             name="last_name"
             value={formData.last_name}
@@ -335,6 +321,7 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             className={!isEditing ? "bg-slate-50" : ""}
           />
         </div>
+        
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-900 flex items-center gap-2">
             <Mail size={16} />
@@ -345,15 +332,15 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             type="email"
             value={formData.email}
             disabled={true}
-            placeholder="your.email@example.com"
-            className="bg-slate-50 cursor-not-allowed"
+            className="bg-slate-50"
           />
           <p className="text-xs text-slate-500">Email cannot be changed</p>
         </div>
+        
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-900 flex items-center gap-2">
             <Phone size={16} />
-            Phone <span className="text-red-500">*</span>
+            Phone *
           </label>
           <Input
             name="phone"
@@ -364,10 +351,11 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             className={!isEditing ? "bg-slate-50" : ""}
           />
         </div>
+        
         <div className="space-y-2">
           <label className="block text-sm font-medium text-slate-900 flex items-center gap-2">
             <MapPin size={16} />
-            Location <span className="text-red-500">*</span>
+            Location *
           </label>
           <Input
             name="location"
@@ -378,10 +366,9 @@ export default function ProfileForm({ initialData, onSave }: ProfileFormProps) {
             className={!isEditing ? "bg-slate-50" : ""}
           />
         </div>
+        
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-900">
-            Date of Birth <span className="text-red-500">*</span>
-          </label>
+          <label className="block text-sm font-medium text-slate-900">Date of Birth *</label>
           <Input
             name="date_of_birth"
             type="date"
