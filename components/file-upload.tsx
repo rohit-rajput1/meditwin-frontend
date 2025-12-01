@@ -1,18 +1,17 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef } from "react"
 import { Upload, X, FileText, ImageIcon, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 
 interface FileUploadProps {
-  onFileSelect: (file: File) => void
+  onFileSelect: (file: File) => Promise<void>
   isLoading?: boolean
 }
 
-export default function FileUpload({ onFileSelect, isLoading = false }: FileUploadProps) {
+const FileUpload = ({ onFileSelect, isLoading = false }: FileUploadProps) => {
   const [dragActive, setDragActive] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -20,14 +19,14 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
   const [errorMessage, setErrorMessage] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"]
-  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+  const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"]
+  const MAX_FILE_SIZE = 10 * 1024 * 1024
 
   const validateFile = (file: File): { valid: boolean; error?: string } => {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return {
         valid: false,
-        error: "Please upload a PDF or image file (JPEG, PNG, WebP)",
+        error: "Please upload a PDF or image file (JPEG, JPG, PNG)",
       }
     }
 
@@ -56,7 +55,7 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
     setUploadProgress(0)
   }
 
-  const handleDrag = (e: React.DragEvent) => {
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -66,7 +65,7 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
     }
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
@@ -91,17 +90,26 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
     setUploadProgress(0)
 
     try {
-      // Simulate file upload with progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-        setUploadProgress(i)
-      }
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 10
+        })
+      }, 200)
 
+      // Call parent's onFileSelect
+      await onFileSelect(selectedFile)
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
       setUploadStatus("success")
-      onFileSelect(selectedFile)
     } catch (error) {
       setUploadStatus("error")
-      setErrorMessage("Failed to upload file. Please try again.")
+      setErrorMessage(error instanceof Error ? error.message : "Failed to upload file")
     }
   }
 
@@ -147,37 +155,47 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <Upload className="w-6 h-6 text-blue-500" />
             </div>
+
             <div>
-              <p className="text-lg font-semibold text-slate-900 mb-1">Drag and drop your medical report</p>
+              <p className="text-lg font-semibold text-slate-900 mb-1">
+                Drag and drop your medical report
+              </p>
               <p className="text-sm text-slate-600">
                 or{" "}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="text-blue-500 hover:underline font-medium"
                   disabled={isLoading}
+                  type="button"
                 >
                   browse files
                 </button>
               </p>
             </div>
-            <p className="text-xs text-slate-600 mt-2">Supported formats: PDF, JPEG, PNG (Max 10MB)</p>
+
+            <p className="text-xs text-slate-600 mt-2">
+              Supported formats: PDF, JPEG, JPG, PNG (Max 10MB)
+            </p>
           </div>
         </div>
       ) : (
         <div className="border border-slate-200 rounded-2xl p-6 bg-white">
           <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
               {getFileIcon(selectedFile)}
-              <div className="text-left">
+              <div className="text-left min-w-0 flex-1">
                 <p className="font-semibold text-slate-900 break-all">{selectedFile.name}</p>
-                <p className="text-sm text-slate-600">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                <p className="text-sm text-slate-600">
+                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
               </div>
             </div>
             {uploadStatus !== "uploading" && (
               <button
                 onClick={handleRemove}
-                className="text-slate-600 hover:text-slate-900 transition-colors"
+                className="text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0 ml-2"
                 disabled={isLoading}
+                type="button"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -210,21 +228,23 @@ export default function FileUpload({ onFileSelect, isLoading = false }: FileUplo
         </div>
       )}
 
-      {selectedFile && uploadStatus !== "success" && (
+      {selectedFile && uploadStatus === "idle" && (
         <Button
           onClick={handleUpload}
-          disabled={isLoading || uploadStatus === "uploading"}
+          disabled={isLoading}
           className="w-full bg-blue-500 hover:bg-blue-600 text-white"
         >
-          {uploadStatus === "uploading" ? "Uploading..." : "Upload Report"}
+          Upload Report
         </Button>
       )}
 
-      {uploadStatus === "success" && (
+      {uploadStatus === "error" && selectedFile && (
         <Button onClick={handleRemove} variant="outline" className="w-full bg-transparent">
-          Upload Another Report
+          Try Again
         </Button>
       )}
     </div>
   )
 }
+
+export default FileUpload
