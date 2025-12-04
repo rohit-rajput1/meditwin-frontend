@@ -25,6 +25,7 @@ const REPORT_TYPE_MAP: Record<string, string> = {
 export default function UploadPage() {
   const router = useRouter()
   const { toast } = useToast()
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
@@ -32,13 +33,14 @@ export default function UploadPage() {
   const [reportType, setReportType] = useState<string>("medical-prescription")
   const [fileId, setFileId] = useState<string | null>(null)
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "processing" | "ready">("idle")
+  const [isNavigating, setIsNavigating] = useState(false)
 
   // Poll for processing status
   useEffect(() => {
     if (!fileId || uploadStatus !== "processing") return
 
     let pollCount = 0
-    const maxPolls = 90 // Max 3 minutes (90 * 2 seconds)
+    const maxPolls = 90
 
     const checkStatus = async () => {
       try {
@@ -83,7 +85,6 @@ export default function UploadPage() {
       }
     }
 
-    // Check immediately, then every 2 seconds
     checkStatus()
     const interval = setInterval(checkStatus, 2000)
     
@@ -120,6 +121,7 @@ export default function UploadPage() {
         throw new Error("No file_id received from backend")
       }
 
+      console.log("Upload successful, file_id:", uploadData.file_id)
       setFileId(uploadData.file_id)
       setUploadStatus("processing")
 
@@ -128,6 +130,7 @@ export default function UploadPage() {
         description: "Your report is being processed. This may take a moment...",
       })
     } catch (error) {
+      console.error("Upload error:", error)
       setUploadStatus("idle")
       toast({
         title: "Upload Failed",
@@ -164,6 +167,7 @@ export default function UploadPage() {
       }
 
       const data = await response.json()
+      console.log("Analysis result:", data)
       setAnalysisResult(data)
       setShowPreview(true)
 
@@ -172,6 +176,7 @@ export default function UploadPage() {
         description: "Your medical report has been analyzed successfully",
       })
     } catch (error) {
+      console.error("Analysis error:", error)
       toast({
         title: "Analysis Failed",
         description: error instanceof Error ? error.message : "Failed to analyze the report",
@@ -183,25 +188,29 @@ export default function UploadPage() {
   }
 
   const handleSaveAndContinue = () => {
-    if (reportType === "medical-prescription") {
-      localStorage.setItem("lastReportType", "prescription")
-    } else if (reportType === "blood-test-report") {
-      localStorage.setItem("lastReportType", "blood-test")
+    if (!fileId) {
+      toast({
+        title: "Error",
+        description: "No file ID found",
+        variant: "destructive",
+      })
+      return
     }
 
+    setIsNavigating(true)
+    
     toast({
-      title: "Report Saved",
-      description: "Your medical report has been saved to your dashboard",
+      title: "Redirecting",
+      description: "Taking you to your personalized dashboard...",
     })
 
-    router.push(
-      `/dashboard?reportType=${reportType === "medical-prescription" ? "prescription" : "blood-test"}`
-    )
+    // Navigate to dashboard with file_id parameter and createNew flag
+    // createNew=true tells dashboard to skip GET and directly create
+    router.push(`/dashboard?file_id=${fileId}&createNew=true`)
   }
 
   const getRiskLevel = (keyFindings: Record<string, any>): "low" | "medium" | "high" => {
     const findingsText = JSON.stringify(keyFindings).toLowerCase()
-
     if (
       findingsText.includes("high") ||
       findingsText.includes("critical") ||
@@ -411,9 +420,17 @@ export default function UploadPage() {
             <div className="flex gap-4 pt-6 border-t border-slate-200">
               <Button
                 onClick={handleSaveAndContinue}
+                disabled={isNavigating}
                 className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
               >
-                Save & Go to Dashboard
+                {isNavigating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading Dashboard...
+                  </>
+                ) : (
+                  "Save & Go to Dashboard"
+                )}
               </Button>
               <Button
                 onClick={() => {
@@ -425,6 +442,7 @@ export default function UploadPage() {
                 }}
                 variant="outline"
                 className="flex-1"
+                disabled={isNavigating}
               >
                 Upload Another
               </Button>

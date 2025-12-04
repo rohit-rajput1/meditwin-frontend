@@ -1,126 +1,119 @@
 "use client"
 
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
+  PieChart,
+  Pie
 } from "recharts"
 
-const bloodPressureData = [
-  { date: "Mon", systolic: 120, diastolic: 80 },
-  { date: "Tue", systolic: 122, diastolic: 81 },
-  { date: "Wed", systolic: 118, diastolic: 79 },
-  { date: "Thu", systolic: 125, diastolic: 83 },
-  { date: "Fri", systolic: 121, diastolic: 80 },
-  { date: "Sat", systolic: 119, diastolic: 78 },
-  { date: "Sun", systolic: 120, diastolic: 80 },
-]
-
-const cholesterolData = [
-  { month: "Jan", total: 210, hdl: 45, ldl: 140 },
-  { month: "Feb", total: 215, hdl: 44, ldl: 145 },
-  { month: "Mar", total: 220, hdl: 43, ldl: 150 },
-  { month: "Apr", total: 218, hdl: 44, ldl: 148 },
-  { month: "May", total: 212, hdl: 46, ldl: 142 },
-  { month: "Jun", total: 208, hdl: 47, ldl: 138 },
-]
-
-const weightData = [
-  { week: "Week 1", weight: 75.5 },
-  { week: "Week 2", weight: 75.2 },
-  { week: "Week 3", weight: 74.8 },
-  { week: "Week 4", weight: 74.5 },
-  { week: "Week 5", weight: 74.1 },
-  { week: "Week 6", weight: 73.8 },
-]
-
-const adherenceData = [
-  { day: "Day 1", taken: 4, missed: 1, total: 5 },
-  { day: "Day 2", taken: 5, missed: 0, total: 5 },
-  { day: "Day 3", taken: 4, missed: 1, total: 5 },
-  { day: "Day 4", taken: 5, missed: 0, total: 5 },
-  { day: "Day 5", taken: 5, missed: 0, total: 5 },
-  { day: "Day 6", taken: 4, missed: 1, total: 5 },
-  { day: "Day 7", taken: 5, missed: 0, total: 5 }
-]
-
-export function BloodPressureChart() {
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={bloodPressureData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-        <XAxis dataKey="date" stroke="var(--color-text-secondary)" />
-        <YAxis stroke="var(--color-text-secondary)" />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "var(--color-surface)",
-            border: `1px solid var(--color-border)`,
-            borderRadius: "8px",
-          }}
-        />
-        <Legend />
-        <Line type="monotone" dataKey="systolic" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 4 }} />
-        <Line type="monotone" dataKey="diastolic" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 4 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  )
+// Biomarker Chart - Shows current values vs reference ranges
+interface BiomarkerChartProps {
+  data: Array<{
+    testName: string
+    currentValue: number
+    referenceMin: number
+    referenceMax: number
+    status: string
+    unit: string
+  }>
 }
 
-export function CholesterolChart() {
+export function BiomarkerChart({ data }: BiomarkerChartProps) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="h-[300px] flex items-center justify-center text-slate-500">
+        No biomarker data available
+      </div>
+    )
+  }
+
+  // Transform data for the chart
+  const chartData = data.map(item => ({
+    name: item.testName,
+    current: item.currentValue,
+    min: item.referenceMin,
+    max: item.referenceMax,
+    status: item.status
+  }))
+
+  const getBarColor = (status: string) => {
+    const lowerStatus = status.toLowerCase()
+    if (lowerStatus === "low") return "#ead308ff" // yellow-500
+    if (lowerStatus === "high") return "#f5550bff" // amber-500
+    if (lowerStatus.includes("critical") || lowerStatus === "very low" || lowerStatus === "very high") {
+      return "#ef4444" // red-500
+    }
+    return "#10b981" // emerald-500 (normal)
+  }
+
+  // Calculate dynamic height based on number of items
+  const chartHeight = Math.max(300, data.length * 60)
+
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={cholesterolData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-        <XAxis dataKey="month" stroke="var(--color-text-secondary)" />
-        <YAxis stroke="var(--color-text-secondary)" />
+    <ResponsiveContainer width="100%" height={chartHeight}>
+      <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis type="number" stroke="#64748b" />
+        <YAxis type="category" dataKey="name" stroke="#64748b" width={150} />
         <Tooltip
           contentStyle={{
-            backgroundColor: "var(--color-surface)",
-            border: `1px solid var(--color-border)`,
+            backgroundColor: "white",
+            border: "1px solid #e2e8f0",
             borderRadius: "8px",
           }}
         />
-        <Legend />
-        <Bar dataKey="hdl" fill="var(--color-accent)" />
-        <Bar dataKey="ldl" fill="var(--color-primary)" />
+        <Bar dataKey="current" name="Current Value" radius={[0, 8, 8, 0]}>
+          {chartData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={getBarColor(entry.status)} />
+          ))}
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   )
 }
 
-export function WeightChart() {
-  return (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={weightData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-        <XAxis dataKey="week" stroke="var(--color-text-secondary)" />
-        <YAxis stroke="var(--color-text-secondary)" domain={[72, 76]} />
-        <Tooltip
-          contentStyle={{
-            backgroundColor: "var(--color-surface)",
-            border: `1px solid var(--color-border)`,
-            borderRadius: "8px",
-          }}
-        />
-        <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={2} dot={{ r: 4 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  )
+// CBC Trend Chart - Shows trends over time
+interface CBCTrendChartProps {
+  data: {
+    dates?: string[]
+    hemoglobin?: number[]
+    wbc?: number[]
+    platelets?: number[]
+  }
 }
 
-export function AdherenceChart() {
+export function CBCTrendChart({ data }: CBCTrendChartProps) {
+  if (!data || !data.dates || data.dates.length === 0) {
+    return (
+      <div className="h-[300px] flex items-center justify-center text-slate-500">
+        No trend data available. Regular monitoring recommended.
+      </div>
+    )
+  }
+
+  // Transform data for chart
+  const chartData = data.dates.map((date, idx) => ({
+    date,
+    hemoglobin: data.hemoglobin?.[idx],
+    wbc: data.wbc?.[idx],
+    platelets: data.platelets?.[idx]
+  }))
+
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={adherenceData}>
+      <LineChart data={chartData}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis dataKey="day" stroke="#64748b" />
+        <XAxis dataKey="date" stroke="#64748b" />
         <YAxis stroke="#64748b" />
         <Tooltip
           contentStyle={{
@@ -130,9 +123,134 @@ export function AdherenceChart() {
           }}
         />
         <Legend />
-        <Bar dataKey="taken" fill="#10b981" name="Doses Taken" />
-        <Bar dataKey="missed" fill="#ef4444" name="Doses Missed" />
-      </BarChart>
+        {data.hemoglobin && (
+          <Line 
+            type="monotone" 
+            dataKey="hemoglobin" 
+            stroke="#3b82f6" 
+            strokeWidth={2} 
+            dot={{ r: 4 }}
+            name="Hemoglobin"
+          />
+        )}
+        {data.wbc && (
+          <Line 
+            type="monotone" 
+            dataKey="wbc" 
+            stroke="#10b981" 
+            strokeWidth={2} 
+            dot={{ r: 4 }}
+            name="WBC"
+          />
+        )}
+        {data.platelets && (
+          <Line 
+            type="monotone" 
+            dataKey="platelets" 
+            stroke="#f59e0b" 
+            strokeWidth={2} 
+            dot={{ r: 4 }}
+            name="Platelets"
+          />
+        )}
+      </LineChart>
     </ResponsiveContainer>
+  )
+}
+
+// Cholesterol Breakdown Chart - Pie chart showing cholesterol composition
+interface CholesterolBreakdownChartProps {
+  data: {
+    totalCholesterol?: number
+    hdl?: number
+    ldl?: number
+    triglycerides?: number
+  }
+}
+
+export function CholesterolBreakdownChart({ data }: CholesterolBreakdownChartProps) {
+  if (!data || (!data.hdl && !data.ldl && !data.triglycerides)) {
+    return (
+      <div className="h-[300px] flex items-center justify-center text-slate-500">
+        Lipid panel not included. Consider cholesterol screening.
+      </div>
+    )
+  }
+
+  const chartData: Array<{ name: string; value: number; color: string }> = []
+  
+  if (data.hdl) {
+    chartData.push({ name: "HDL (Good)", value: data.hdl, color: "#10b981" })
+  }
+  if (data.ldl) {
+    chartData.push({ name: "LDL (Bad)", value: data.ldl, color: "#ef4444" })
+  }
+  if (data.triglycerides) {
+    chartData.push({ name: "Triglycerides", value: data.triglycerides, color: "#f59e0b" })
+  }
+
+  const RADIAN = Math.PI / 180
+  const renderCustomizedLabel = ({
+    cx,
+    cy,
+    midAngle,
+    innerRadius,
+    outerRadius,
+    percent
+  }: any) => {
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? "start" : "end"}
+        dominantBaseline="central"
+        className="font-semibold"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    )
+  }
+
+  return (
+    <div className="h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={renderCustomizedLabel}
+            outerRadius={100}
+            fill="#8884d8"
+            dataKey="value"
+          >
+            {chartData.map((entry: any, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "white",
+              border: "1px solid #e2e8f0",
+              borderRadius: "8px",
+            }}
+          />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+      {data.totalCholesterol && (
+        <div className="text-center mt-4">
+          <p className="text-sm text-slate-600">
+            Total Cholesterol: <span className="font-semibold text-slate-900">{data.totalCholesterol} mg/dL</span>
+          </p>
+        </div>
+      )}
+    </div>
   )
 }

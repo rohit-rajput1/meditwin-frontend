@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search, Filter, FileText, Calendar, ArrowUpDown, Upload, MessageSquare } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Search, FileText, Calendar, ArrowUpDown, Upload, MessageSquare, Activity, Pill } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -19,10 +20,13 @@ interface Report {
   type: string
   date: string
   status: "completed" | "processing" | "pending"
+  report_type: "blood_test" | "prescription"
 }
 
-export default function DashboardPage() {
-  // Sample data - replace with actual data from your backend
+export default function DashboardListPage() {
+  const router = useRouter()
+  
+  // Sample data - in production, fetch from your backend
   const [reports] = useState<Report[]>([
     {
       id: "1",
@@ -30,20 +34,23 @@ export default function DashboardPage() {
       type: "Laboratory",
       date: "2024-03-15",
       status: "completed",
+      report_type: "blood_test"
     },
     {
       id: "2",
-      name: "X-Ray Chest",
-      type: "Radiology",
+      name: "Prescription - Antibiotics",
+      type: "Prescription",
       date: "2024-03-10",
       status: "completed",
+      report_type: "prescription"
     },
     {
       id: "3",
       name: "Annual Health Checkup",
-      type: "General",
+      type: "Laboratory",
       date: "2024-03-05",
       status: "completed",
+      report_type: "blood_test"
     },
     {
       id: "4",
@@ -51,20 +58,15 @@ export default function DashboardPage() {
       type: "Laboratory",
       date: "2024-02-28",
       status: "completed",
+      report_type: "blood_test"
     },
     {
       id: "5",
-      name: "ECG Report",
-      type: "Cardiology",
+      name: "Pain Management Prescription",
+      type: "Prescription",
       date: "2024-02-20",
       status: "processing",
-    },
-    {
-      id: "6",
-      name: "Diabetes Screening",
-      type: "Laboratory",
-      date: "2024-02-15",
-      status: "completed",
+      report_type: "prescription"
     },
   ])
 
@@ -118,13 +120,18 @@ export default function DashboardPage() {
     }
   }
 
+  const handleReportClick = (report: Report) => {
+    // Navigate to dashboard with file_id
+    router.push(`/dashboard?file_id=${report.id}`)
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">Dashboard</h1>
-          <p className="text-slate-600">View and manage your medical reports</p>
+          <h1 className="text-3xl font-semibold text-slate-900 mb-2">My Reports</h1>
+          <p className="text-slate-600">View and manage your medical reports and dashboards</p>
         </div>
 
         {/* Quick Actions */}
@@ -219,39 +226,49 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-slate-200">
               {filteredReports.map((report) => (
-                <Link key={report.id} href={`/report/${report.id}`}>
-                  <div className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-4 flex-1">
-                        <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                          <FileText className="text-blue-600" size={24} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base font-semibold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">
-                            {report.name}
-                          </h3>
-                          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-                            <span className="flex items-center gap-1">
-                              <Calendar size={14} />
-                              {formatDate(report.date)}
-                            </span>
-                            <span className="text-slate-400">•</span>
-                            <span>{report.type}</span>
-                          </div>
-                        </div>
+                <div
+                  key={report.id}
+                  onClick={() => handleReportClick(report)}
+                  className="p-6 hover:bg-slate-50 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                        {report.report_type === "blood_test" ? (
+                          <Activity className="text-blue-600" size={24} />
+                        ) : (
+                          <Pill className="text-blue-600" size={24} />
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 ml-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                            report.status
-                          )}`}
-                        >
-                          {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
-                        </span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">
+                          {report.name}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+                          <span className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            {formatDate(report.date)}
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span>{report.type}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="capitalize">
+                            {report.report_type === "blood_test" ? "Blood Test" : "Prescription"}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-3 ml-4">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                          report.status
+                        )}`}
+                      >
+                        {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
+                      </span>
+                    </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
