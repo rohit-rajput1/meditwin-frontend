@@ -80,7 +80,6 @@ export default function DashboardPage() {
         
         console.log("Loading dashboard for file_id:", fileId, "createNew:", createNew)
         
-        // If createNew flag is true (coming from upload), skip GET and directly create
         if (createNew) {
           console.log("Creating new dashboard (skipping GET check)...")
           
@@ -101,7 +100,6 @@ export default function DashboardPage() {
           return
         }
         
-        // Otherwise, try to GET existing dashboard first
         console.log("Fetching existing dashboard...")
         const getResponse = await fetch(`/api/health?file_id=${fileId}`)
         
@@ -112,7 +110,6 @@ export default function DashboardPage() {
           return
         }
         
-        // If GET fails with 404, create new dashboard
         if (getResponse.status === 404) {
           console.log("Dashboard not found, creating new one...")
           
@@ -133,7 +130,6 @@ export default function DashboardPage() {
           return
         }
         
-        // If it's some other error
         const errorData = await getResponse.json().catch(() => ({ error: "Unknown error" }))
         throw new Error(errorData.error || `Failed to load dashboard (${getResponse.status})`)
         
@@ -186,7 +182,6 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold text-slate-900">Blood Test Dashboard</h1>
@@ -195,7 +190,6 @@ export default function DashboardPage() {
             <DashboardBadge dashboardType={dashboardData.dashboard_type} />
           </div>
 
-          {/* Quick Actions */}
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <Link href="/upload">
               <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white gap-2 h-12">
@@ -203,7 +197,7 @@ export default function DashboardPage() {
                 Upload New Report
               </Button>
             </Link>
-            <Link href="/chat">
+            <Link href={`/chat?file_id=${fileId}`}>
               <Button variant="outline" className="w-full gap-2 h-12 bg-white hover:bg-slate-50">
                 <MessageSquare size={18} />
                 Chat with AI Doctor
@@ -211,7 +205,6 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Top Bar Metrics */}
           {dashboardData.topBar && Object.keys(dashboardData.topBar).length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {Object.entries(dashboardData.topBar).map(([key, value]) => (
@@ -220,7 +213,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Biomarker Chart */}
           {dashboardData.middleSection?.biomarkerChart && 
            Array.isArray(dashboardData.middleSection.biomarkerChart) &&
            dashboardData.middleSection.biomarkerChart.length > 0 && (
@@ -237,9 +229,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* CBC Trend Chart and Cholesterol - Side by Side */}
           <div className="grid lg:grid-cols-2 gap-8 mb-8">
-            {/* CBC Trend Chart */}
             {dashboardData.middleSection?.cbcTrendChart && 
              !dashboardData.middleSection.cbcTrendChart.note && (
               <Card className="border-slate-200">
@@ -253,7 +243,6 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {/* Cholesterol Breakdown */}
             {dashboardData.middleSection?.cholesterolBreakdownChart && 
              !dashboardData.middleSection.cholesterolBreakdownChart.note && (
               <Card className="border-slate-200">
@@ -270,7 +259,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Biomarker Details */}
           {dashboardData.middleSection?.biomarkerChart && 
            Array.isArray(dashboardData.middleSection.biomarkerChart) &&
            dashboardData.middleSection.biomarkerChart.length > 0 && (
@@ -291,11 +279,9 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Recommendations and Insights */}
           {((dashboardData.criticalInsights && dashboardData.criticalInsights.length > 0) ||
             (dashboardData.recommendations && dashboardData.recommendations.length > 0)) && (
             <div className="grid lg:grid-cols-2 gap-8">
-              {/* Critical Insights */}
               {dashboardData.criticalInsights && dashboardData.criticalInsights.length > 0 && (
                 <Card className="border-slate-200">
                   <CardHeader>
@@ -319,7 +305,6 @@ export default function DashboardPage() {
                 </Card>
               )}
 
-              {/* Recommendations */}
               {dashboardData.recommendations && dashboardData.recommendations.length > 0 && (
                 <Card className="border-slate-200">
                   <CardHeader>
@@ -357,7 +342,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-slate-900">Prescription Dashboard</h1>
@@ -366,7 +350,6 @@ export default function DashboardPage() {
           <DashboardBadge dashboardType={dashboardData.dashboard_type} />
         </div>
 
-        {/* Quick Actions */}
         <div className="grid md:grid-cols-2 gap-4 mb-8">
           <Link href="/upload">
             <Button className="w-full bg-blue-500 hover:bg-blue-600 text-white gap-2 h-12">
@@ -374,7 +357,7 @@ export default function DashboardPage() {
               Upload New Report
             </Button>
           </Link>
-          <Link href="/chat">
+          <Link href={`/chat?file_id=${fileId}`}>
             <Button variant="outline" className="w-full gap-2 h-12 bg-transparent">
               <MessageSquare size={18} />
               Chat with AI Doctor
@@ -382,7 +365,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Top Bar Metrics */}
         {dashboardData.topBar && Object.keys(dashboardData.topBar).length > 0 && (
           <div className="grid md:grid-cols-4 gap-4 mb-8">
             {Object.entries(dashboardData.topBar).map(([key, value]) => (
@@ -391,9 +373,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Medicine Details and Safety Information */}
         <div className="grid lg:grid-cols-3 gap-8 mb-8">
-          {/* Medicine Details */}
           <div className="lg:col-span-2">
             {dashboardData.middleSection?.medicines && 
              Array.isArray(dashboardData.middleSection.medicines) &&
@@ -414,7 +394,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Safety Information */}
           <div>
             {dashboardData.middleSection?.safetyInformation && (
               <SafetyInformationCard 
@@ -424,9 +403,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recommendations and Critical Insights */}
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Critical Insights */}
           {dashboardData.criticalInsights && dashboardData.criticalInsights.length > 0 && (
             <Card className="border-slate-200">
               <CardHeader>
@@ -450,7 +427,6 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          {/* Recommendations */}
           {dashboardData.recommendations && dashboardData.recommendations.length > 0 && (
             <Card className="border-slate-200">
               <CardHeader>
