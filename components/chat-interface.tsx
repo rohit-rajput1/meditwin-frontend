@@ -2,68 +2,48 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import ChatMessage from "@/components/chat-message"
-import { Send, Plus, Search, MoreVertical, Trash2, Edit2, ChevronDown, Check, ArrowLeft } from "lucide-react"
+import { Send, Plus, Search, MoreVertical, Trash2, Edit2, ArrowLeft, Loader2 } from "lucide-react"
 
 interface Message {
-  id: string
-  text: string
-  sender: "user" | "ai"
-  timestamp: Date
+  message_id: string
+  user_query: string
+  bot_response: string
+  created_at: string
 }
 
 interface Chat {
-  id: string
-  name: string
-  messages: Message[]
-  specialists: string[]
-  lastMessage: Date
+  chat_id: string
+  chat_name: string
 }
 
-const specialists = [
-  "General Physician",
-  "Pathologist",
-  "Endocrinologist",
-  "Nutritionist",
-  "Pharmacist"
-]
+interface ChatInterfaceProps {
+  initialChatId?: string | null
+  fileId?: string | null
+}
 
-export default function ChatInterface() {
-  const [chats, setChats] = useState<Chat[]>([
-    {
-      id: "1",
-      name: "Health Checkup Discussion",
-      specialists: ["General Physician"],
-      lastMessage: new Date(Date.now() - 2 * 60 * 60000),
-      messages: [
-        {
-          id: "1",
-          text: "Hello! I'm your AI General Physician. How can I assist you today?",
-          sender: "ai",
-          timestamp: new Date(Date.now() - 2 * 60 * 60000),
-        },
-      ],
-    },
-  ])
+export default function ChatInterface({ initialChatId, fileId }: ChatInterfaceProps) {
+  const router = useRouter()
   
-  const [currentChatId, setCurrentChatId] = useState("1")
+  const [chats, setChats] = useState<Chat[]>([])
+  const [currentChatId, setCurrentChatId] = useState<string | null>(initialChatId || null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [editingChatId, setEditingChatId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
-  const [selectedSpecialists, setSelectedSpecialists] = useState<string[]>(["General Physician"])
-  const [showSpecialistDropdown, setShowSpecialistDropdown] = useState(false)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const currentChat = chats.find(chat => chat.id === currentChatId)
+  const currentChat = chats.find(chat => chat.chat_id === currentChatId)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -71,87 +51,174 @@ export default function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [currentChat?.messages])
+  }, [messages])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setActiveMenu(null)
       }
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowSpecialistDropdown(false)
-      }
     }
-
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || !currentChat) return
+  // Load recent chats
+  useEffect(() => {
+    async function loadRecentChats() {
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "recent", 
+            search: searchQuery || undefined 
+          }),
+        })
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: "user",
-      timestamp: new Date(),
+        if (response.ok) {
+          const data = await response.json()
+          setChats(data.chats || [])
+        } else {
+          console.error("Failed to load recent chats:", await response.text())
+        }
+      } catch (error) {
+        console.error("Failed to load recent chats:", error)
+      }
     }
 
-    setChats(prev => prev.map(chat => 
-      chat.id === currentChatId 
-        ? { ...chat, messages: [...chat.messages, userMessage], lastMessage: new Date() }
-        : chat
-    ))
-    
+    loadRecentChats()
+  }, [searchQuery])
+
+  // Load chat history when chat changes
+  useEffect(() => {
+    async function loadChatHistory() {
+      if (!currentChatId) {
+        setMessages([])
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "history", chat_id: currentChatId }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setMessages(data.messages || [])
+        }
+      } catch (error) {
+        console.error("Failed to load chat history:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadChatHistory()
+  }, [currentChatId])
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return
+
+    // If no current chat, create one first
+    if (!currentChatId) {
+      if (!fileId) {
+        alert("Please select a file or create a new chat from the dashboard")
+        return
+      }
+
+      try {
+        const createResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "create", file_id: fileId }),
+        })
+
+        if (!createResponse.ok) {
+          throw new Error("Failed to create chat")
+        }
+
+        const { chat_id } = await createResponse.json()
+        setCurrentChatId(chat_id)
+        
+        // Reload chats list
+        const recentResponse = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "recent" }),
+        })
+        
+        if (recentResponse.ok) {
+          const data = await recentResponse.json()
+          setChats(data.chats || [])
+        }
+
+        // Now send the message with the new chat_id
+        await sendMessage(chat_id)
+      } catch (error) {
+        console.error("Failed to create chat:", error)
+        alert("Failed to create chat. Please try again.")
+      }
+      return
+    }
+
+    await sendMessage(currentChatId)
+  }
+
+  const sendMessage = async (chatId: string) => {
+    const userMessage = inputValue.trim()
     setInputValue("")
-    setIsLoading(true)
+    setIsSendingMessage(true)
 
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "continue",
+          chat_id: chatId,
+          user_query: userMessage,
+        }),
+      })
 
-    const responses: Record<string, string[]> = {
-      "General Physician": [
-        "Based on your symptoms, I recommend getting adequate rest and staying hydrated. If symptoms persist, please schedule an appointment.",
-        "Your health concerns are valid. I suggest monitoring your symptoms and maintaining a healthy lifestyle.",
-      ],
-      "Pathologist": [
-        "Your lab results show normal ranges for most parameters. I'll explain any notable findings in detail.",
-        "Based on the test results, everything appears within normal limits.",
-      ],
-      "Endocrinologist": [
-        "Hormonal balance is crucial for overall health. Your symptoms suggest we should monitor your thyroid function.",
-        "Let's discuss your metabolic health. Regular monitoring and lifestyle adjustments can make a significant difference.",
-      ],
-      "Nutritionist": [
-        "A balanced diet rich in whole foods, lean proteins, and vegetables would benefit your health goals.",
-        "Your nutritional needs can be met through mindful eating. Let's create a sustainable plan for your lifestyle.",
-      ],
-      "Pharmacist": [
-        "It's important to take medications as prescribed. Let me explain the proper dosage and potential side effects.",
-        "Always inform your doctor about all medications you're taking to avoid interactions.",
-      ],
+      if (!response.ok) {
+        throw new Error("Failed to send message")
+      }
+
+      const data = await response.json()
+      
+      // Add the new message to the list
+      setMessages(prev => [...prev, {
+        message_id: data.message_id || Date.now().toString(),
+        user_query: data.user_query,
+        bot_response: data.bot_response,
+        created_at: data.created_at,
+      }])
+
+      // Reload chats to update chat name if it was "Untitled Chat"
+      const recentResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recent" }),
+      })
+      
+      if (recentResponse.ok) {
+        const recentData = await recentResponse.json()
+        setChats(recentData.chats || [])
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error)
+      alert("Failed to send message. Please try again.")
+    } finally {
+      setIsSendingMessage(false)
     }
-
-    const activeSpecialist = currentChat.specialists[Math.floor(Math.random() * currentChat.specialists.length)]
-    const specialistResponses = responses[activeSpecialist] || responses["General Physician"]
-    
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: specialistResponses[Math.floor(Math.random() * specialistResponses.length)],
-      sender: "ai",
-      timestamp: new Date(),
-    }
-
-    setChats(prev => prev.map(chat => 
-      chat.id === currentChatId 
-        ? { ...chat, messages: [...chat.messages, aiMessage] }
-        : chat
-    ))
-    
-    setIsLoading(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -167,34 +234,69 @@ export default function ChatInterface() {
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"
   }
 
-  const createNewChat = () => {
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      name: `New Chat`,
-      specialists: selectedSpecialists.length > 0 ? selectedSpecialists : ["General Physician"],
-      lastMessage: new Date(),
-      messages: [
-        {
-          id: "1",
-          text: `Hello! I'm your AI ${selectedSpecialists.length > 0 ? selectedSpecialists.join(", ") : "General Physician"}. How can I assist you today?`,
-          sender: "ai",
-          timestamp: new Date(),
-        },
-      ],
+  const createNewChat = async () => {
+    if (!fileId) {
+      alert("Please select a file from the dashboard to start a new chat")
+      return
     }
-    
-    setChats(prev => [newChat, ...prev])
-    setCurrentChatId(newChat.id)
-    setInputValue("")
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", file_id: fileId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create chat")
+      }
+
+      const { chat_id } = await response.json()
+      setCurrentChatId(chat_id)
+      setMessages([])
+      setInputValue("")
+
+      // Reload chats list
+      const recentResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "recent" }),
+      })
+      
+      if (recentResponse.ok) {
+        const data = await recentResponse.json()
+        setChats(data.chats || [])
+      }
+    } catch (error) {
+      console.error("Failed to create new chat:", error)
+      alert("Failed to create new chat. Please try again.")
+    }
   }
 
-  const deleteChat = (chatId: string) => {
-    setChats(prev => prev.filter(chat => chat.id !== chatId))
-    if (currentChatId === chatId && chats.length > 1) {
-      const remainingChats = chats.filter(chat => chat.id !== chatId)
-      setCurrentChatId(remainingChats[0].id)
+  const deleteChat = async (chatId: string) => {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", chat_id: chatId }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to delete chat")
+      }
+
+      setChats(prev => prev.filter(chat => chat.chat_id !== chatId))
+      
+      if (currentChatId === chatId) {
+        const remainingChats = chats.filter(chat => chat.chat_id !== chatId)
+        setCurrentChatId(remainingChats.length > 0 ? remainingChats[0].chat_id : null)
+      }
+      
+      setActiveMenu(null)
+    } catch (error) {
+      console.error("Failed to delete chat:", error)
+      alert("Failed to delete chat. Please try again.")
     }
-    setActiveMenu(null)
   }
 
   const startRenaming = (chatId: string, currentName: string) => {
@@ -203,14 +305,38 @@ export default function ChatInterface() {
     setActiveMenu(null)
   }
 
-  const finishRenaming = () => {
-    if (editingChatId && editingName.trim()) {
-      setChats(prev => prev.map(chat => 
-        chat.id === editingChatId ? { ...chat, name: editingName.trim() } : chat
-      ))
+  const finishRenaming = async () => {
+    if (!editingChatId || !editingName.trim()) {
+      setEditingChatId(null)
+      setEditingName("")
+      return
     }
-    setEditingChatId(null)
-    setEditingName("")
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "rename",
+          chat_id: editingChatId,
+          chat_name: editingName.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to rename chat")
+      }
+
+      setChats(prev => prev.map(chat =>
+        chat.chat_id === editingChatId ? { ...chat, chat_name: editingName.trim() } : chat
+      ))
+    } catch (error) {
+      console.error("Failed to rename chat:", error)
+      alert("Failed to rename chat. Please try again.")
+    } finally {
+      setEditingChatId(null)
+      setEditingName("")
+    }
   }
 
   const handleRenameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -222,33 +348,8 @@ export default function ChatInterface() {
     }
   }
 
-  const toggleSpecialist = (specialist: string) => {
-    setSelectedSpecialists(prev => {
-      if (prev.includes(specialist)) {
-        return prev.filter(s => s !== specialist)
-      } else {
-        return [...prev, specialist]
-      }
-    })
-  }
-
-  const applySpecialists = () => {
-    if (currentChat && selectedSpecialists.length > 0) {
-      setChats(prev => prev.map(chat =>
-        chat.id === currentChatId ? { ...chat, specialists: selectedSpecialists } : chat
-      ))
-    }
-    setShowSpecialistDropdown(false)
-  }
-
-  useEffect(() => {
-    if (currentChat) {
-      setSelectedSpecialists(currentChat.specialists)
-    }
-  }, [currentChatId])
-
   const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+    chat.chat_name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -259,19 +360,18 @@ export default function ChatInterface() {
           <Button 
             variant="ghost" 
             size="sm" 
+            onClick={() => router.push("/")}
             className="gap-2 text-slate-700 hover:text-slate-900 hover:bg-slate-100 -ml-2 mb-4 h-8"
           >
             <ArrowLeft size={16} />
             <span className="text-sm font-medium">Back</span>
           </Button>
           
-          {/* New Chat Button */}
           <Button onClick={createNewChat} size="sm" className="w-full gap-2 bg-indigo-600 hover:bg-indigo-700 text-white h-9">
             <Plus size={16} />
             <span className="text-sm">Create New Chat</span>
           </Button>
 
-          {/* Search */}
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
             <input
@@ -284,21 +384,20 @@ export default function ChatInterface() {
           </div>
         </div>
 
-        {/* Recent Chats */}
         <div className="flex-1 overflow-y-auto p-3 min-h-0">
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 px-2">Recent Chats</h3>
           <div className="space-y-1">
             {filteredChats.map(chat => (
               <div
-                key={chat.id}
+                key={chat.chat_id}
                 className={`group relative p-3 rounded-lg cursor-pointer transition-all ${
-                  currentChatId === chat.id
+                  currentChatId === chat.chat_id
                     ? "bg-indigo-50 border border-indigo-100"
                     : "hover:bg-slate-50 border border-transparent"
                 }`}
-                onClick={() => setCurrentChatId(chat.id)}
+                onClick={() => setCurrentChatId(chat.chat_id)}
               >
-                {editingChatId === chat.id ? (
+                {editingChatId === chat.chat_id ? (
                   <input
                     type="text"
                     value={editingName}
@@ -312,30 +411,26 @@ export default function ChatInterface() {
                   <>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{chat.name}</p>
-                        <p className="text-xs text-slate-500 mt-1 truncate">{chat.specialists.join(", ")}</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {chat.lastMessage.toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                        </p>
+                        <p className="text-sm font-medium text-slate-900 truncate">{chat.chat_name}</p>
                       </div>
                       
-                      <div className="relative" ref={activeMenu === chat.id ? menuRef : null}>
+                      <div className="relative" ref={activeMenu === chat.chat_id ? menuRef : null}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            setActiveMenu(activeMenu === chat.id ? null : chat.id)
+                            setActiveMenu(activeMenu === chat.chat_id ? null : chat.chat_id)
                           }}
                           className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded transition-all"
                         >
                           <MoreVertical size={14} className="text-slate-600" />
                         </button>
                         
-                        {activeMenu === chat.id && (
+                        {activeMenu === chat.chat_id && (
                           <div className="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                startRenaming(chat.id, chat.name)
+                                startRenaming(chat.chat_id, chat.chat_name)
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                             >
@@ -345,7 +440,7 @@ export default function ChatInterface() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                deleteChat(chat.id)
+                                deleteChat(chat.chat_id)
                               }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                             >
@@ -366,87 +461,46 @@ export default function ChatInterface() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-w-0">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-slate-100 flex-shrink-0">
           <div>
             <h2 className="text-base font-semibold text-slate-900">
-              {currentChat?.name || "Health Checkup Discussion"}
+              {currentChat?.chat_name || "Select a chat or create a new one"}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Always here to help</p>
-          </div>
-
-          {/* Specialist Multi-Select Dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <Button
-              onClick={() => setShowSpecialistDropdown(!showSpecialistDropdown)}
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-white border-slate-200 hover:bg-slate-50 h-9"
-            >
-              <span className="text-sm font-medium text-slate-700">
-                {currentChat?.specialists.length === 1 
-                  ? currentChat.specialists[0]
-                  : `${currentChat?.specialists.length || 0} Specialists`}
-              </span>
-              <ChevronDown size={14} className="text-slate-500" />
-            </Button>
-
-            {showSpecialistDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
-                <div className="p-2 border-b border-slate-100">
-                  <p className="text-xs font-semibold text-slate-600 px-2 py-1">Select Specialists</p>
-                </div>
-                <div className="max-h-64 overflow-y-auto p-2">
-                  {specialists.map(specialist => (
-                    <button
-                      key={specialist}
-                      onClick={() => toggleSpecialist(specialist)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 rounded-md transition-colors"
-                    >
-                      <span className={selectedSpecialists.includes(specialist) ? "text-indigo-600 font-medium" : "text-slate-700"}>
-                        {specialist}
-                      </span>
-                      {selectedSpecialists.includes(specialist) && (
-                        <Check size={16} className="text-indigo-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-                <div className="p-2 border-t border-slate-100 flex gap-2">
-                  <Button
-                    onClick={() => setShowSpecialistDropdown(false)}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 h-8 text-xs"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={applySpecialists}
-                    size="sm"
-                    className="flex-1 h-8 text-xs bg-indigo-600 hover:bg-indigo-700"
-                    disabled={selectedSpecialists.length === 0}
-                  >
-                    Apply
-                  </Button>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-slate-500 mt-0.5">AI-powered medical assistant</p>
           </div>
         </div>
 
-        {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
-          {currentChat?.messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg.text} sender={msg.sender} timestamp={msg.timestamp} />
-          ))}
-
-          {isLoading && <ChatMessage message="" sender="ai" timestamp={new Date()} isLoading={true} />}
-
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              <p>Start a conversation by typing a message below</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div key={msg.message_id}>
+                <ChatMessage 
+                  message={msg.user_query} 
+                  sender="user" 
+                  timestamp={new Date(msg.created_at)} 
+                />
+                <ChatMessage 
+                  message={msg.bot_response} 
+                  sender="ai" 
+                  timestamp={new Date(msg.created_at)} 
+                />
+              </div>
+            ))
+          )}
+          {isSendingMessage && (
+            <ChatMessage message="" sender="ai" timestamp={new Date()} isLoading={true} />
+          )}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input Area */}
         <div className="border-t border-slate-100 p-4 flex-shrink-0">
           <div className="flex gap-3">
             <Textarea
@@ -456,12 +510,12 @@ export default function ChatInterface() {
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything about your health..."
               className="resize-none text-sm border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              disabled={isLoading}
+              disabled={isSendingMessage}
               rows={1}
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isSendingMessage}
               className="bg-indigo-600 hover:bg-indigo-700 text-white flex-shrink-0 h-auto px-4"
             >
               <Send size={18} />
